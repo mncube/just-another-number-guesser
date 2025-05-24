@@ -1,0 +1,166 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Number Guessing Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    #game-container {
+      background: #fff;
+      padding: 20px 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      width: 300px;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    input[type="number"] {
+      width: 60px;
+      padding: 5px;
+      font-size: 1rem;
+      margin-right: 10px;
+    }
+    button {
+      padding: 6px 12px;
+      font-size: 1rem;
+      cursor: pointer;
+      border: none;
+      background-color: #007bff;
+      color: #fff;
+      border-radius: 4px;
+    }
+    button:disabled {
+      background: #999;
+      cursor: default;
+    }
+    #feedback {
+      margin: 15px 0;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <h1>Guess the Number</h1>
+    <p>I'm thinking of a number between 1 and 100.</p>
+    <div>
+      <input id="guess-input" type="number" min="1" max="100" />
+      <button id="guess-button">Guess</button>
+    </div>
+    <div id="feedback"></div>
+    <button id="restart-button" style="display:none;">Play Again</button>
+  </div>
+
+  <script>
+    (function(){
+      // ---- Platform Integration Stub ----
+      const PlatformService = {
+        sessionId: null,
+        startSession: function(gameId) {
+          // Example POST to RandomPlayables API to create a session
+          return fetch('https://api.randomplayables.com/sessions', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ gameId })
+          })
+          .then(resp => resp.json())
+          .then(data => {
+            this.sessionId = data.sessionId;
+            console.log('Session started:', this.sessionId);
+            return this.sessionId;
+          })
+          .catch(err => {
+            console.error('Failed to start session', err);
+            return null;
+          });
+        },
+        sendGameData: function(payload) {
+          if (!this.sessionId) return;
+          // Example POST to submit gameplay data
+          fetch('https://api.randomplayables.com/data', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(Object.assign({ sessionId: this.sessionId }, payload))
+          })
+          .then(resp => console.log('Game data sent', payload))
+          .catch(err => console.error('Failed to send data', err));
+        }
+      };
+      // ------------------------------------
+
+      let secretNumber, guessCount, startTime;
+      const inputEl = document.getElementById('guess-input');
+      const guessBtn = document.getElementById('guess-button');
+      const feedbackEl = document.getElementById('feedback');
+      const restartBtn = document.getElementById('restart-button');
+
+      function initGame() {
+        secretNumber = Math.floor(Math.random() * 100) + 1;
+        guessCount = 0;
+        startTime = Date.now();
+        feedbackEl.textContent = '';
+        inputEl.value = '';
+        inputEl.disabled = false;
+        guessBtn.disabled = false;
+        restartBtn.style.display = 'none';
+      }
+
+      function handleGuess() {
+        const guess = parseInt(inputEl.value, 10);
+        if (isNaN(guess) || guess < 1 || guess > 100) {
+          feedbackEl.textContent = 'Please enter a number 1–100.';
+          return;
+        }
+        guessCount++;
+        if (guess < secretNumber) {
+          feedbackEl.textContent = 'Too low!';
+        } else if (guess > secretNumber) {
+          feedbackEl.textContent = 'Too high!';
+        } else {
+          const timeTaken = Math.round((Date.now() - startTime) / 1000);
+          feedbackEl.textContent = 
+            `Correct! You found it in ${guessCount} guesses (${timeTaken}s).`;
+          inputEl.disabled = true;
+          guessBtn.disabled = true;
+          restartBtn.style.display = 'inline-block';
+          // Send final data to platform
+          PlatformService.sendGameData({
+            guesses: guessCount,
+            timeSeconds: timeTaken,
+            result: 'win'
+          });
+        }
+        inputEl.value = '';
+        inputEl.focus();
+      }
+
+      function handleRestart() {
+        initGame();
+        // Optionally start a new session or reuse the same session
+      }
+
+      // Wire up events
+      guessBtn.addEventListener('click', handleGuess);
+      inputEl.addEventListener('keyup', e => {
+        if (e.key === 'Enter') handleGuess();
+      });
+      restartBtn.addEventListener('click', handleRestart);
+
+      // Kick things off
+      document.addEventListener('DOMContentLoaded', () => {
+        PlatformService.startSession('number-guessing-game')
+          .then(() => initGame());
+      });
+    })();
+  </script>
+</body>
+</html>
